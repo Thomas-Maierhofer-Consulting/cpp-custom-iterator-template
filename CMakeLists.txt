@@ -31,3 +31,14 @@ target_link_libraries(${PROJECT_NAME}-test
     ${GTEST_LIBRARIES}
     Threads::Threads
     )
+
+add_executable(${PROJECT_NAME}-sample)
+target_sources(${PROJECT_NAME}-sample PRIVATE 
+    sample/sample-main.cpp
+    
+    )
+
+target_link_libraries(${PROJECT_NAME}-sample
+    ${PROJECT_NAME} 
+    Threads::Threads
+    )

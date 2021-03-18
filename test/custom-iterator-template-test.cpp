@@ -17,19 +17,19 @@ using namespace tmc::foundation;
 
 struct CustomElement {
     CustomElement() = default;
-    CustomElement(int data): Data(data) {}
+    CustomElement(int data): data_(data) {}
 
-    inline bool operator==(const CustomElement &other) const { return Data == other.Data; }
+    inline bool operator==(const CustomElement &other) const { return data_ == other.data_; }
 
     friend ::std::ostream &operator<<(::std::ostream &stream, const CustomElement &item)
     {
-        return stream << "{" << item.Data << "}";
+        return stream << "{" << item.data_ << "}";
     }
-    inline void SetValue(int data) { Data=data; }
-    inline int GetValue() const { return Data; }
+    inline void SetValue(int data) { data_=data; }
+    inline int GetValue() const { return data_; }
 
 private:
-    int Data;
+    int data_;
 };
 
 struct CustomContainerBase {
@@ -42,6 +42,8 @@ struct CustomContainerBase {
     }
 
     std::vector<CustomElement> InternalData;
+    mutable unsigned int IteratorConnectCount=0;
+    mutable unsigned int IteratorDisconnectCount=0;
 
     typedef std::ptrdiff_t difference_type;
     typedef size_t size_type;
@@ -71,15 +73,15 @@ struct CustomContainerBase {
 
 // Skeleton for Input Iterators
 // https://en.cppreference.com/w/cpp/named_req/InputIterator
-struct CustomContainerInputIterator: public CustomContainerBase {
-    CustomContainerInputIterator() = default;
-    CustomContainerInputIterator(std::initializer_list<int> values): CustomContainerBase(values) {}
+struct CustomContainerWithInputIterator: public CustomContainerBase {
+    CustomContainerWithInputIterator() = default;
+    CustomContainerWithInputIterator(std::initializer_list<int> values): CustomContainerBase(values) {}
 
     template<bool is_const>
     struct iterator_state {
 
         typedef std::input_iterator_tag iterator_category;
-        typedef typename std::conditional<is_const, const CustomContainerInputIterator, CustomContainerInputIterator>::type         container_type;
+        typedef typename std::conditional<is_const, const CustomContainerWithInputIterator, CustomContainerWithInputIterator>::type         container_type;
         typedef typename std::conditional<is_const, const CustomElement, CustomElement>::type                                       value_type;
         typedef typename std::conditional<is_const, decltype(InternalData)::const_iterator, decltype(InternalData)::iterator>::type internal_iterator;
 
@@ -90,7 +92,9 @@ struct CustomContainerInputIterator: public CustomContainerBase {
         inline iterator_state(): container_(nullptr) {}
 
         // Construction with connected container; (ALL Iterators)
-        inline iterator_state(container_type * container): container_(container) {}
+        inline iterator_state(container_type * container): container_(container) {
+            ++container_->IteratorConnectCount;
+        }
 
 
         // Copy Construction from the changeble and const variants - allows changeble to const and vice versa assignment (ALL Iterators)
@@ -98,7 +102,14 @@ struct CustomContainerInputIterator: public CustomContainerBase {
         inline iterator_state(const iterator_state<false> & source): container_(source.container_), current_(source.current_) {}
 
         // Destruction (ALL Iterators)
-        inline ~iterator_state() {current_ = internal_iterator(); container_ = nullptr; }
+        inline ~iterator_state() {
+            current_ = internal_iterator();
+            if( container_ != nullptr)
+            { 
+                ++container_->IteratorDisconnectCount;
+                container_ = nullptr; 
+            }
+        }
 
         // Start and End Positions (ALL Iterators)
         inline void begin() {current_ = container_->InternalData.begin(); }
@@ -137,10 +148,10 @@ struct CustomContainerInputIterator: public CustomContainerBase {
 
 // Skeleton for Forward Iterators
 // https://en.cppreference.com/w/cpp/named_req/ForwardIterator
-struct CustomContainerForwardIterator: public CustomContainerBase {
+struct CustomContainerWithForwardIterator: public CustomContainerBase {
 
-    CustomContainerForwardIterator() = default;
-    CustomContainerForwardIterator(std::initializer_list<int> values): CustomContainerBase(values) {}
+    CustomContainerWithForwardIterator() = default;
+    CustomContainerWithForwardIterator(std::initializer_list<int> values): CustomContainerBase(values) {}
 
 
     template<bool is_const>
@@ -148,7 +159,7 @@ struct CustomContainerForwardIterator: public CustomContainerBase {
 
         // Specifing the type of the specialized iterator - these typedefs are picked up by the template to define the iterators (ALL Iterators)
         typedef std::forward_iterator_tag iterator_category;
-        typedef typename std::conditional<is_const, const CustomContainerForwardIterator, CustomContainerForwardIterator>::type        container_type;
+        typedef typename std::conditional<is_const, const CustomContainerWithForwardIterator, CustomContainerWithForwardIterator>::type        container_type;
         typedef typename std::conditional<is_const, const CustomElement, CustomElement>::type            value_type;
         typedef typename std::conditional<is_const, decltype(InternalData)::const_iterator, decltype(InternalData)::iterator>::type internal_iterator;
 
@@ -159,7 +170,9 @@ struct CustomContainerForwardIterator: public CustomContainerBase {
         inline iterator_state(): container_(nullptr) {}
 
         // Construction with connected container; (ALL Iterators)
-        inline iterator_state(container_type * container): container_(container) {}
+        inline iterator_state(container_type * container): container_(container) {
+            ++container_->IteratorConnectCount;
+        }
 
 
         // Copy Construction from the changeble and const variants - allows changeble to const and vice versa assignment (ALL Iterators)
@@ -167,7 +180,14 @@ struct CustomContainerForwardIterator: public CustomContainerBase {
         inline iterator_state(const iterator_state<false> & source): container_(source.container_), current_(source.current_) {}
 
         // Destruction (ALL Iterators)
-        inline ~iterator_state() {current_ = internal_iterator(); container_ = nullptr; }
+        inline ~iterator_state() {
+            current_ = internal_iterator();
+            if( container_ != nullptr)
+            { 
+                ++container_->IteratorDisconnectCount;
+                container_ = nullptr; 
+            }
+        }
 
         // Start and End Positions (ALL Iterators)
         inline void begin() {current_ = container_->InternalData.begin(); }
@@ -207,10 +227,10 @@ struct CustomContainerForwardIterator: public CustomContainerBase {
 
 // Skeleton for Bidirectional Iterators
 // https://en.cppreference.com/w/cpp/named_req/BidirectionalIterator
-struct CustomContainerBidirectionalIterator: public CustomContainerBase {
+struct CustomContainerWithBidirectionalIterator: public CustomContainerBase {
 
-    CustomContainerBidirectionalIterator() = default;
-    CustomContainerBidirectionalIterator(std::initializer_list<int> values): CustomContainerBase(values) {}
+    CustomContainerWithBidirectionalIterator() = default;
+    CustomContainerWithBidirectionalIterator(std::initializer_list<int> values): CustomContainerBase(values) {}
 
 
     template<bool is_const>
@@ -218,7 +238,7 @@ struct CustomContainerBidirectionalIterator: public CustomContainerBase {
 
         // Specifing the type of the specialized iterator - these typedefs are picked up by the template to define the iterators (ALL Iterators)
         typedef std::bidirectional_iterator_tag iterator_category;
-        typedef typename std::conditional<is_const, const CustomContainerBidirectionalIterator, CustomContainerBidirectionalIterator>::type        container_type;
+        typedef typename std::conditional<is_const, const CustomContainerWithBidirectionalIterator, CustomContainerWithBidirectionalIterator>::type        container_type;
         typedef typename std::conditional<is_const, const CustomElement, CustomElement>::type            value_type;
         typedef typename std::conditional<is_const, decltype(InternalData)::const_iterator, decltype(InternalData)::iterator>::type internal_iterator;
 
@@ -229,7 +249,9 @@ struct CustomContainerBidirectionalIterator: public CustomContainerBase {
         inline iterator_state(): container_(nullptr) {}
 
         // Construction with connected container; (ALL Iterators)
-        inline iterator_state(container_type * container): container_(container) {}
+        inline iterator_state(container_type * container): container_(container) {
+            ++container_->IteratorConnectCount;
+        }
 
 
         // Copy Construction from the changeble and const variants - allows changeble to const and vice versa assignment (ALL Iterators)
@@ -237,7 +259,14 @@ struct CustomContainerBidirectionalIterator: public CustomContainerBase {
         inline iterator_state(const iterator_state<false> & source): container_(source.container_), current_(source.current_) {}
 
         // Destruction (ALL Iterators)
-        inline ~iterator_state() {current_ = internal_iterator(); container_ = nullptr; }
+        inline ~iterator_state() {
+            current_ = internal_iterator();
+            if( container_ != nullptr)
+            { 
+                ++container_->IteratorDisconnectCount;
+                container_ = nullptr; 
+            }
+        }
 
         // Start and End Positions (ALL Iterators)
         inline void begin() {current_ = container_->InternalData.begin(); }
@@ -288,10 +317,10 @@ struct CustomContainerBidirectionalIterator: public CustomContainerBase {
 };
 
 // Skeleton for Random Access Iterators
-struct CustomContainerRandomAccessIterator: public CustomContainerBase {
+struct CustomContainerWithRandomAccessIterator: public CustomContainerBase {
 
-    CustomContainerRandomAccessIterator() = default;
-    CustomContainerRandomAccessIterator(std::initializer_list<int> values): CustomContainerBase(values) {}
+    CustomContainerWithRandomAccessIterator() = default;
+    CustomContainerWithRandomAccessIterator(std::initializer_list<int> values): CustomContainerBase(values) {}
 
 
     template<bool is_const>
@@ -299,7 +328,7 @@ struct CustomContainerRandomAccessIterator: public CustomContainerBase {
 
         // Specifing the type of the specialized iterator - these typedefs are picked up by the template to define the iterators (ALL Iterators)
         typedef std::random_access_iterator_tag iterator_category;
-        typedef typename std::conditional<is_const, const CustomContainerRandomAccessIterator, CustomContainerRandomAccessIterator>::type        container_type;
+        typedef typename std::conditional<is_const, const CustomContainerWithRandomAccessIterator, CustomContainerWithRandomAccessIterator>::type        container_type;
         typedef typename std::conditional<is_const, const CustomElement, CustomElement>::type            value_type;
         typedef typename std::conditional<is_const, decltype(InternalData)::const_iterator, decltype(InternalData)::iterator>::type internal_iterator;
 
@@ -310,7 +339,9 @@ struct CustomContainerRandomAccessIterator: public CustomContainerBase {
         inline iterator_state(): container_(nullptr) {}
 
         // Construction with connected container; (ALL Iterators)
-        inline iterator_state(container_type * container): container_(container) {}
+        inline iterator_state(container_type * container): container_(container) {
+            ++container_->IteratorConnectCount;
+        }
 
 
         // Copy Construction from the changeble and const variants - allows changeble to const and vice versa assignment (ALL Iterators)
@@ -318,7 +349,14 @@ struct CustomContainerRandomAccessIterator: public CustomContainerBase {
         inline iterator_state(const iterator_state<false> & source): container_(source.container_), current_(source.current_) {}
 
         // Destruction (ALL Iterators)
-        inline ~iterator_state() {current_ = internal_iterator(); container_ = nullptr; }
+        inline ~iterator_state() {
+            current_ = internal_iterator();
+            if( container_ != nullptr)
+            { 
+                ++container_->IteratorDisconnectCount;
+                container_ = nullptr; 
+            }
+        }
 
         // Start and End Positions (ALL Iterators)
         inline void begin() {current_ = container_->InternalData.begin(); }
@@ -393,47 +431,76 @@ class IteratorTemplate_IteratorConceptTest: public testing::Test {
 protected:
     typename T::iterator GetBeginIterator() {return container.begin(); }
     typename T::iterator GetEndIterator() {return container.begin(); }
+    int GetIteratorConnectCount() const { return container.IteratorConnectCount; }
+    int GetIteratorDisconnectCount() const { return container.IteratorDisconnectCount; }
 };
 
-typedef testing::Types<CustomContainerInputIterator, CustomContainerForwardIterator, CustomContainerBidirectionalIterator, CustomContainerRandomAccessIterator> IteratorConceptImplementations;
+typedef testing::Types<CustomContainerWithInputIterator, CustomContainerWithForwardIterator, CustomContainerWithBidirectionalIterator, CustomContainerWithRandomAccessIterator> IteratorConceptImplementations;
 
 TYPED_TEST_CASE(IteratorTemplate_IteratorConceptTest, IteratorConceptImplementations);
 
 // https://en.cppreference.com/w/cpp/named_req/MoveConstructible
 TYPED_TEST(IteratorTemplate_IteratorConceptTest, MoveConstructible) {
     typename TypeParam::iterator iterator = this->GetBeginIterator();
-    typename TypeParam::iterator moveConstructedIterator = ++iterator;
-    EXPECT_EQ(*moveConstructedIterator, CustomElement(2));
+    ASSERT_EQ(*iterator, CustomElement(1));
+
+    typename TypeParam::iterator moveConstructedIterator = iterator++; // rvalue 
+    
+    EXPECT_EQ(*moveConstructedIterator, CustomElement(1));
 }
 
 // https://en.cppreference.com/w/cpp/named_req/CopyConstructible
 TYPED_TEST(IteratorTemplate_IteratorConceptTest, CopyConstructible) {
     typename TypeParam::iterator iterator = this->GetBeginIterator();
+    ASSERT_EQ(*iterator, CustomElement(1));
+
     typename TypeParam::iterator copyConstructedIterator = iterator;
+    
     EXPECT_EQ(*copyConstructedIterator, CustomElement(1));
+}
+
+// https://en.cppreference.com/w/cpp/named_req/MoveAssignable
+TYPED_TEST(IteratorTemplate_IteratorConceptTest, MoveAssignable) {
+    typename TypeParam::iterator iterator = this->GetBeginIterator();
+    typename TypeParam::iterator moveAssigedIterator; 
+    ASSERT_FALSE(moveAssigedIterator.is_connected());
+
+    moveAssigedIterator = iterator++;  // rvalue
+
+    EXPECT_EQ(*moveAssigedIterator, CustomElement(1));
 }
 
 // https://en.cppreference.com/w/cpp/named_req/CopyAssignable
 TYPED_TEST(IteratorTemplate_IteratorConceptTest, CopyAssignable) {
     typename TypeParam::iterator iterator = this->GetBeginIterator();
-    typename TypeParam::iterator copyAssigedIterator = iterator;
-    copyAssigedIterator = ++iterator;
-    EXPECT_EQ(*copyAssigedIterator, CustomElement(2));
+    typename TypeParam::iterator copyAssigedIterator; 
+    ASSERT_FALSE(copyAssigedIterator.is_connected());
+
+    copyAssigedIterator = iterator;
+    EXPECT_EQ(*copyAssigedIterator, CustomElement(1));
 }
 
 // https://en.cppreference.com/w/cpp/named_req/Destructible
 TYPED_TEST(IteratorTemplate_IteratorConceptTest, Destructible) {
     typename TypeParam::iterator destroyedIterator = this->GetBeginIterator();
     typedef decltype(destroyedIterator) TIter;
+    ASSERT_EQ(this->GetIteratorConnectCount(),1);
+    ASSERT_EQ(this->GetIteratorDisconnectCount(),0);
+    ASSERT_TRUE(destroyedIterator.is_connected());
+
     destroyedIterator.~TIter();
-    EXPECT_FALSE(destroyedIterator.is_connected());
+    
+    EXPECT_EQ(this->GetIteratorConnectCount(),1);
+    EXPECT_EQ(this->GetIteratorDisconnectCount(),1);
 }
 
 // https://en.cppreference.com/w/cpp/named_req/Swappable
 TYPED_TEST(IteratorTemplate_IteratorConceptTest, Swappable) {
     typename TypeParam::iterator swappedLhsIterator = this->GetBeginIterator();
     typename TypeParam::iterator swappedRhsIterator = this->GetEndIterator();
+
     std::swap(swappedLhsIterator, swappedRhsIterator);
+    
     EXPECT_EQ(swappedLhsIterator, this->GetEndIterator());
     EXPECT_EQ(swappedRhsIterator, this->GetBeginIterator());
 }
@@ -450,7 +517,7 @@ protected:
     typename T::iterator GetEndIterator() {return container.begin(); }
 };
 
-typedef testing::Types<CustomContainerInputIterator, CustomContainerForwardIterator, CustomContainerBidirectionalIterator, CustomContainerRandomAccessIterator> InputIteratorConceptImplementations;
+typedef testing::Types<CustomContainerWithInputIterator, CustomContainerWithForwardIterator, CustomContainerWithBidirectionalIterator, CustomContainerWithRandomAccessIterator> InputIteratorConceptImplementations;
 
 TYPED_TEST_CASE(IteratorTemplate_InputIteratorConceptTest, InputIteratorConceptImplementations);
 
@@ -459,6 +526,7 @@ TYPED_TEST(IteratorTemplate_InputIteratorConceptTest, EqualityComparison) {
     typename TypeParam::iterator lhsIterator = this->GetBeginIterator();
     typename TypeParam::iterator sameRhsIterator = this->GetBeginIterator();
     typename TypeParam::iterator differentRhsIterator = ++(this->GetBeginIterator());
+
     EXPECT_EQ(*lhsIterator, CustomElement(1));
     EXPECT_EQ(*sameRhsIterator, CustomElement(1));
     EXPECT_EQ(*differentRhsIterator, CustomElement(2));
@@ -478,8 +546,12 @@ TYPED_TEST(IteratorTemplate_InputIteratorConceptTest, MemberAccess) {
 TYPED_TEST(IteratorTemplate_InputIteratorConceptTest, PostAndPreincrementWithoutResult) {
     typename TypeParam::iterator preIncrementIterator = this->GetBeginIterator();
     typename TypeParam::iterator postIncrementIterator = this->GetBeginIterator();
+    ASSERT_EQ(*preIncrementIterator, CustomElement(1));
+    ASSERT_EQ(*postIncrementIterator, CustomElement(1));
+
     ++preIncrementIterator;
     postIncrementIterator++;
+    
     EXPECT_EQ(*preIncrementIterator, CustomElement(2));
     EXPECT_EQ(*postIncrementIterator, CustomElement(2));
 }
@@ -488,8 +560,12 @@ TYPED_TEST(IteratorTemplate_InputIteratorConceptTest, PostAndPreincrementWithout
 TYPED_TEST(IteratorTemplate_InputIteratorConceptTest, PostAndPreincrementWithResult) {
     typename TypeParam::iterator preIncrementIterator = this->GetBeginIterator();
     typename TypeParam::iterator postIncrementIterator = this->GetBeginIterator();
+    ASSERT_EQ(*preIncrementIterator, CustomElement(1));
+    ASSERT_EQ(*postIncrementIterator, CustomElement(1));
+
     typename TypeParam::iterator::value_type preIncrementValue = *(++preIncrementIterator);
     typename TypeParam::iterator::value_type postIncrementValue = *postIncrementIterator++;
+    
     EXPECT_EQ(*preIncrementIterator, CustomElement(2));
     EXPECT_EQ(*postIncrementIterator, CustomElement(2));
     EXPECT_EQ(preIncrementValue, CustomElement(2));
@@ -510,34 +586,43 @@ protected:
 
 };
 
-typedef testing::Types<CustomContainerForwardIterator, CustomContainerBidirectionalIterator, CustomContainerRandomAccessIterator> ForwardIteratorConceptImplementations;
+typedef testing::Types<CustomContainerWithForwardIterator, CustomContainerWithBidirectionalIterator, CustomContainerWithRandomAccessIterator> ForwardIteratorConceptImplementations;
 
 TYPED_TEST_CASE(IteratorTemplate_ForwardConceptTest, ForwardIteratorConceptImplementations);
 
 // https://en.cppreference.com/w/cpp/named_req/DefaultConstructible
 TYPED_TEST(IteratorTemplate_ForwardConceptTest, DefaultConstructible) {
     typename TypeParam::iterator defaultConstructedIterator{};
+
     EXPECT_FALSE(defaultConstructedIterator.is_connected());
 }
 
-TYPED_TEST(IteratorTemplate_ForwardConceptTest, Multipass) {
-    // Iterators are equal when the point to the same element or to a non-dereferenceable position
+TYPED_TEST(IteratorTemplate_ForwardConceptTest, Multipass_IteratorsAreEqualWhenPointingOnSameElementOrNonDereferencablePosition) {
     EXPECT_TRUE(this->GetBeginIterator() == this->GetBeginIterator());
     EXPECT_TRUE(this->GetEndIterator() == this->GetEndIterator());
     EXPECT_TRUE(++(this->GetBeginIterator()) == ++(this->GetBeginIterator()));
+}
 
+TYPED_TEST(IteratorTemplate_ForwardConceptTest, Multipass_IncrementIteratorCopyDoesNotChangeIteratorPosition) {
     // Incrementing a iterator copy does not change the iterator position
     typename TypeParam::iterator incrementCopyIterator = this->GetBeginIterator();
-    ++(typename TypeParam::iterator(incrementCopyIterator));
-    EXPECT_EQ(*incrementCopyIterator, CustomElement(1));
 
-    // Assignment does not invalidate the iterator
+    ++(typename TypeParam::iterator(incrementCopyIterator));
+
+    EXPECT_EQ(*incrementCopyIterator, CustomElement(1));
+}
+
+
+TYPED_TEST(IteratorTemplate_ForwardConceptTest, Multipass_AssignmentDoesNotInvalidateTheIterator) {
     typename TypeParam::iterator assigmentIterator = this->GetBeginIterator();
     typename TypeParam::iterator secondIterator = this->GetBeginIterator();
+
     *assigmentIterator = CustomElement(10);
+
     EXPECT_EQ(*assigmentIterator, CustomElement(10));
     EXPECT_EQ(*secondIterator, CustomElement(10));
 }
+
 
 TYPED_TEST(IteratorTemplate_ForwardConceptTest, SingularIterators) {
     // changeable iterators
@@ -574,26 +659,34 @@ protected:
     typename T::iterator GetEndIterator() {return container.begin(); }
 };
 
-typedef testing::Types<CustomContainerBidirectionalIterator, CustomContainerRandomAccessIterator> BidirectionalIteratorConceptImplementations;
+typedef testing::Types<CustomContainerWithBidirectionalIterator, CustomContainerWithRandomAccessIterator> BidirectionalIteratorConceptImplementations;
 
 TYPED_TEST_CASE(IteratorTemplate_BidirectionalConceptTest, BidirectionalIteratorConceptImplementations);
 
 // Operations: (void)i--; (void)--i;
 TYPED_TEST(IteratorTemplate_BidirectionalConceptTest, PostAndPredecrementWithoutResult) {
-    typename TypeParam::iterator preDecrementIterator = ++(this->GetBeginIterator());  // 2nd Element {2}
-    typename TypeParam::iterator postDecrementIterator = ++(this->GetBeginIterator());  // 2nd Element {2}
+    typename TypeParam::iterator preDecrementIterator = ++(this->GetBeginIterator());  
+    typename TypeParam::iterator postDecrementIterator = ++(this->GetBeginIterator()); 
+    ASSERT_EQ(*preDecrementIterator, CustomElement(2));
+    ASSERT_EQ(*postDecrementIterator, CustomElement(2));
+
     --preDecrementIterator;
     postDecrementIterator--;
+    
     EXPECT_EQ(*preDecrementIterator, CustomElement(1));
     EXPECT_EQ(*postDecrementIterator, CustomElement(1));
 }
 
 // Operations:  *(--I), *i--;
 TYPED_TEST(IteratorTemplate_BidirectionalConceptTest, PostAndPredecrementWithResult) {
-    typename TypeParam::iterator preDecrementIterator = ++(this->GetBeginIterator());  // 2nd Element {2}
-    typename TypeParam::iterator postDecrementIterator = ++(this->GetBeginIterator());  // 2nd Element {2}
+    typename TypeParam::iterator preDecrementIterator = ++(this->GetBeginIterator());
+    typename TypeParam::iterator postDecrementIterator = ++(this->GetBeginIterator());
+    ASSERT_EQ(*preDecrementIterator, CustomElement(2));
+    ASSERT_EQ(*postDecrementIterator, CustomElement(2));
+
     typename TypeParam::iterator::value_type preDecrementValue = *(--preDecrementIterator);
     typename TypeParam::iterator::value_type postDecrementValue = *postDecrementIterator--;
+    
     EXPECT_EQ(*preDecrementIterator, CustomElement(1));
     EXPECT_EQ(*postDecrementIterator, CustomElement(1));
     EXPECT_EQ(preDecrementValue, CustomElement(1));
@@ -606,15 +699,15 @@ TEST(IteratorTemplate, TestRandomAccessIteratorConcept) {
     // Operations: r += n; r -= n; a + n; n + a, i-n; b - a; i[n], a < b; a <= b; a >= b; a > b;
 
 
-    CustomContainerRandomAccessIterator container{1,2,3,4,5,6,7,8};
+    CustomContainerWithRandomAccessIterator container{1,2,3,4,5,6,7,8};
     // Operation: r += n;
-    CustomContainerRandomAccessIterator::iterator addOffsetIterator = container.begin();
+    CustomContainerWithRandomAccessIterator::iterator addOffsetIterator = container.begin();
     addOffsetIterator += 5;
     addOffsetIterator += -3;
     EXPECT_EQ(*addOffsetIterator, CustomElement(3));
 
     // Operation: r -= n;
-    CustomContainerRandomAccessIterator::iterator subtractOffsetIterator = container.begin();
+    CustomContainerWithRandomAccessIterator::iterator subtractOffsetIterator = container.begin();
     subtractOffsetIterator -= -5;
     subtractOffsetIterator -= 3;
     EXPECT_EQ(*subtractOffsetIterator, CustomElement(3));
@@ -629,16 +722,16 @@ TEST(IteratorTemplate, TestRandomAccessIteratorConcept) {
 
 
     // Operation: i[];
-    CustomContainerRandomAccessIterator::iterator indexOperationIterator = container.begin() + 3;
-    CustomContainerRandomAccessIterator::const_iterator constIndexOperationIterator = container.cbegin() + 3;
+    CustomContainerWithRandomAccessIterator::iterator indexOperationIterator = container.begin() + 3;
+    CustomContainerWithRandomAccessIterator::const_iterator constIndexOperationIterator = container.cbegin() + 3;
     EXPECT_EQ(indexOperationIterator[2], CustomElement(6));
     EXPECT_EQ(constIndexOperationIterator[2], CustomElement(6));
     EXPECT_EQ(indexOperationIterator[-2], CustomElement(2));
     EXPECT_EQ(constIndexOperationIterator[-2], CustomElement(2));
 
     // Operation: b - a; a < b; a <= b; a >= b; a > b;
-    CustomContainerRandomAccessIterator::iterator smallerIterator = container.begin() + 2;
-    CustomContainerRandomAccessIterator::iterator biggerIterator = container.begin() + 5;
+    CustomContainerWithRandomAccessIterator::iterator smallerIterator = container.begin() + 2;
+    CustomContainerWithRandomAccessIterator::iterator biggerIterator = container.begin() + 5;
     EXPECT_EQ(biggerIterator - smallerIterator, 3);
     EXPECT_EQ(smallerIterator - biggerIterator, -3);
     EXPECT_EQ(smallerIterator - smallerIterator, 0);
@@ -662,21 +755,21 @@ TEST(IteratorTemplate, TestRandomAccessIteratorConcept) {
 }
 
 TEST(IteratorTemplate, TestIteratorTypeTraits) {
-    CustomContainerRandomAccessIterator container{1,2};
-    const CustomContainerRandomAccessIterator constContainer{1,2};
+    CustomContainerWithRandomAccessIterator container{1,2};
+    const CustomContainerWithRandomAccessIterator constContainer{1,2};
 
-    EXPECT_EQ(typeid(decltype(container.begin())), typeid(CustomContainerRandomAccessIterator::iterator));
-    EXPECT_EQ(typeid(decltype(container.end())), typeid(CustomContainerRandomAccessIterator::iterator));
-    EXPECT_EQ(typeid(decltype(constContainer.begin())), typeid(CustomContainerRandomAccessIterator::const_iterator));
-    EXPECT_EQ(typeid(decltype(constContainer.end())), typeid(CustomContainerRandomAccessIterator::const_iterator));
-    EXPECT_EQ(typeid(decltype(container.cbegin())), typeid(CustomContainerRandomAccessIterator::const_iterator));
-    EXPECT_EQ(typeid(decltype(container.cend())), typeid(CustomContainerRandomAccessIterator::const_iterator));
+    EXPECT_EQ(typeid(decltype(container.begin())), typeid(CustomContainerWithRandomAccessIterator::iterator));
+    EXPECT_EQ(typeid(decltype(container.end())), typeid(CustomContainerWithRandomAccessIterator::iterator));
+    EXPECT_EQ(typeid(decltype(constContainer.begin())), typeid(CustomContainerWithRandomAccessIterator::const_iterator));
+    EXPECT_EQ(typeid(decltype(constContainer.end())), typeid(CustomContainerWithRandomAccessIterator::const_iterator));
+    EXPECT_EQ(typeid(decltype(container.cbegin())), typeid(CustomContainerWithRandomAccessIterator::const_iterator));
+    EXPECT_EQ(typeid(decltype(container.cend())), typeid(CustomContainerWithRandomAccessIterator::const_iterator));
 
 
-    EXPECT_EQ(typeid(decltype(container.rbegin())), typeid(CustomContainerRandomAccessIterator::reverse_iterator));
-    EXPECT_EQ(typeid(decltype(container.rend())), typeid(CustomContainerRandomAccessIterator::reverse_iterator));
-    EXPECT_EQ(typeid(decltype(constContainer.rbegin())), typeid(CustomContainerRandomAccessIterator::const_reverse_iterator));
-    EXPECT_EQ(typeid(decltype(constContainer.rend())), typeid(CustomContainerRandomAccessIterator::const_reverse_iterator));
+    EXPECT_EQ(typeid(decltype(container.rbegin())), typeid(CustomContainerWithRandomAccessIterator::reverse_iterator));
+    EXPECT_EQ(typeid(decltype(container.rend())), typeid(CustomContainerWithRandomAccessIterator::reverse_iterator));
+    EXPECT_EQ(typeid(decltype(constContainer.rbegin())), typeid(CustomContainerWithRandomAccessIterator::const_reverse_iterator));
+    EXPECT_EQ(typeid(decltype(constContainer.rend())), typeid(CustomContainerWithRandomAccessIterator::const_reverse_iterator));
 
     EXPECT_EQ(typeid(std::iterator_traits<decltype(container.begin())>::value_type), typeid(CustomElement));
     EXPECT_EQ(typeid(std::iterator_traits<decltype(container.begin())>::difference_type), typeid(ptrdiff_t));
@@ -697,8 +790,8 @@ TEST(IteratorTemplate, TestIteratorTypeTraits) {
 }
 
 TEST(IteratorTemplate, TestIteratorBeginAndEndPositions) {
-    CustomContainerRandomAccessIterator empty{};
-    CustomContainerRandomAccessIterator twoElements{1, 2};
+    CustomContainerWithRandomAccessIterator empty{};
+    CustomContainerWithRandomAccessIterator twoElements{1, 2};
 
     const auto &constEmptyRef = empty;
     const auto &constTwoElementsRef = twoElements;
@@ -715,20 +808,20 @@ TEST(IteratorTemplate, TestIteratorBeginAndEndPositions) {
 }
 
 TEST(IteratorTemplate, TestChangebleToConstCast) {
-    CustomContainerRandomAccessIterator container{1, 2};
+    CustomContainerWithRandomAccessIterator container{1, 2};
 
-    CustomContainerRandomAccessIterator::iterator changeableIterator = container.begin();
-    CustomContainerRandomAccessIterator::const_iterator constIterator = changeableIterator;
+    CustomContainerWithRandomAccessIterator::iterator changeableIterator = container.begin();
+    CustomContainerWithRandomAccessIterator::const_iterator constIterator = changeableIterator;
 
     EXPECT_EQ(*changeableIterator, CustomElement{1});
     EXPECT_EQ(*constIterator, CustomElement{1});
 }
 
 TEST(IteratorTemplate, TestChangebleAndConstComparison) {
-    CustomContainerRandomAccessIterator container{1, 2};
+    CustomContainerWithRandomAccessIterator container{1, 2};
 
-    CustomContainerRandomAccessIterator::iterator changeableIterator = container.begin();
-    CustomContainerRandomAccessIterator::const_iterator constIterator = changeableIterator;
+    CustomContainerWithRandomAccessIterator::iterator changeableIterator = container.begin();
+    CustomContainerWithRandomAccessIterator::const_iterator constIterator = changeableIterator;
 
     EXPECT_TRUE(changeableIterator == constIterator );
     EXPECT_TRUE(constIterator == changeableIterator );
@@ -738,8 +831,8 @@ TEST(IteratorTemplate, TestChangebleAndConstComparison) {
 }
 
 TEST(IteratorTemplate, TestIteratorLoops) {
-    CustomContainerRandomAccessIterator empty{};
-    CustomContainerRandomAccessIterator twoElements{1,2};
+    CustomContainerWithRandomAccessIterator empty{};
+    CustomContainerWithRandomAccessIterator twoElements{1,2};
 
     const auto &constEmptyRef = empty;
     const auto &constTwoElementsRef = twoElements;
@@ -772,12 +865,12 @@ TEST(IteratorTemplate, TestIteratorLoops) {
 
 
     size_t constFromChangeableEmptyCount = 0u;
-    for (auto i = constEmptyRef.cbegin(), end = constEmptyRef.cend(); i != end; ++i) {
+    for (auto i = empty.cbegin(), end = empty.cend(); i != end; ++i) {
         ++constFromChangeableEmptyCount;
     }
 
     std::vector<int> constFromChangeableTwoElementsContent;
-    for (auto i = constTwoElementsRef.cbegin(), end = constTwoElementsRef.cend(); i != end; ++i) {
+    for (auto i = twoElements.cbegin(), end = twoElements.cend(); i != end; ++i) {
         static_assert(std::is_const< std::remove_reference<decltype(*i)>::type>::value, "Const iterators must introduce const Elements");
 
         constFromChangeableTwoElementsContent.push_back(i->GetValue());
@@ -794,8 +887,8 @@ TEST(IteratorTemplate, TestIteratorLoops) {
 }
 
 TEST(IteratorTemplate, TestReverseIteratorLoops) {
-    CustomContainerRandomAccessIterator empty{};
-    CustomContainerRandomAccessIterator twoElements{1,2};
+    CustomContainerWithRandomAccessIterator empty{};
+    CustomContainerWithRandomAccessIterator twoElements{1,2};
 
     const auto &constEmptyRef = empty;
     const auto &constTwoElementsRef = twoElements;
@@ -834,8 +927,8 @@ TEST(IteratorTemplate, TestReverseIteratorLoops) {
 }
 
 TEST(IteratorTemplate, TestRangeBasedLoops) {
-    CustomContainerRandomAccessIterator empty {};
-    CustomContainerRandomAccessIterator twoElements{1,2};
+    CustomContainerWithRandomAccessIterator empty {};
+    CustomContainerWithRandomAccessIterator twoElements{1,2};
 
     const auto & constEmptyRef = empty;
     const auto & constTwoElementsRef = twoElements;
@@ -878,7 +971,7 @@ TEST(IteratorTemplate, TestRangeBasedLoops) {
 }
 
 TEST(IteratorTemplate, TestPartialStateForInputIterator) {
-    CustomContainerInputIterator container{1,2};
-    const CustomContainerInputIterator constContainer{1,2};
+    CustomContainerWithInputIterator container{1,2};
+    const CustomContainerWithInputIterator constContainer{1,2};
     EXPECT_EQ(typeid(std::iterator_traits<decltype(container.begin())>::iterator_category), typeid(std::input_iterator_tag));
 }

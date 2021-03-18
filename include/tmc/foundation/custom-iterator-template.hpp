@@ -12,7 +12,11 @@ namespace foundation {
 template<template<bool> typename TIteratorState, bool is_const>
 struct custom_iterator_template {
 
-    static_assert(std::is_base_of<std::input_iterator_tag, typename TIteratorState<is_const>::iterator_category>::value,"Iterator category must derive from std::input_iterator_tag");
+    static_assert(std::is_base_of<std::input_iterator_tag, typename TIteratorState<is_const>::iterator_category>::value, "Iterator category must be/derive from std::forward_iterator_tag");
+
+    static_assert(std::is_member_function_pointer<decltype(&TIteratorState<is_const>::begin)>::value,"begin() is not defined in iterator state"); 
+
+
 
     typedef typename TIteratorState<is_const>::iterator_category    iterator_category;
     typedef typename TIteratorState<is_const>::container_type       container_type;
